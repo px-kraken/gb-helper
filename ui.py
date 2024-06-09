@@ -31,14 +31,14 @@ class ImageProcessingApp:
         self.algorithm_menu.bind("<<ComboboxSelected>>", self.show_preview)
 
     def create_widgets(self):
-        frame = ttk.Frame(self.root, padding="10 10 10 10")
+        frame = ttk.Frame(self.root, padding="0 0 0 0")
         frame.pack(fill=tk.BOTH, expand=True)
 
         left_frame = ttk.Frame(frame)
-        left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
+        left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=0, pady=0)
 
         right_frame = ttk.Frame(frame)
-        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=0, pady=0, expand=True)
 
         # Subfolder selection
         subfolder_frame = ttk.LabelFrame(left_frame, text="Select Subfolder", padding="10 10 10 10")
@@ -46,24 +46,25 @@ class ImageProcessingApp:
         self.subfolder_frame = subfolder_frame  # Save reference for dynamic radio button creation
 
         # Algorithm selection
-        algorithm_frame = ttk.LabelFrame(left_frame, text="Processing Algorithm", padding="10 10 10 10")
+        algorithm_frame = ttk.LabelFrame(left_frame, text="Processing", padding="10 10 10 10")
         algorithm_frame.pack(fill=tk.X, padx=10, pady=5)
+
         self.algorithm_menu = ttk.Combobox(algorithm_frame, textvariable=self.selected_algorithm,
                                            values=list(self.processing_algorithms.keys()))
-        self.algorithm_menu.pack(fill=tk.X, padx=5)
-
-        # Override checkbox
-        self.override_checkbox = ttk.Checkbutton(left_frame, text="Override existing files",
-                                                 variable=self.force_override)
-        self.override_checkbox.pack(pady=10)
+        self.algorithm_menu.pack(fill=tk.X, padx=5, side="top")
 
         # Process button
-        self.process_button = ttk.Button(left_frame, text="Process All Images", command=self.process_all_images)
-        self.process_button.pack(pady=10)
+        self.process_button = ttk.Button(algorithm_frame, text="Process All Images", command=self.process_all_images)
+        self.process_button.pack(expand=True, padx=5, pady=10, side="left", fill=tk.BOTH)
+
+        # Override checkbox
+        self.override_checkbox = ttk.Checkbutton(algorithm_frame, text="Override existing files",
+                                                 variable=self.force_override)
+        self.override_checkbox.pack(padx=10, pady=10, side="left")
 
         # Progress bar
-        self.progress_bar = ttk.Progressbar(left_frame, orient="horizontal", mode="determinate", length=200)
-        self.progress_bar.pack(pady=10)
+        self.progress_bar = ttk.Progressbar(left_frame, orient="horizontal", mode="determinate")
+        self.progress_bar.pack(fill=tk.X, padx=10, pady=10)
 
         # Log text box
         log_frame = ttk.LabelFrame(left_frame, text="Log", padding="10 10 10 10")
@@ -73,30 +74,32 @@ class ImageProcessingApp:
 
         # Preview area
         self.preview_area = ttk.Frame(right_frame)
-        self.preview_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        self.preview_area.pack(fill=tk.X, expand=True, padx=0, pady=0)
 
         # Upsampling options
         self.upsampling_frame = ttk.LabelFrame(right_frame, text="Upsampling", padding="10 10 10 10")
-        self.upsampling_frame.pack(fill=tk.X, pady=10)
+        self.upsampling_frame.pack(fill=tk.X, pady=10, side='bottom')
         for value, text in [(1, "1x"), (2, "4x"), (4, "8x"), (8, "16x")]:
-            rb = ttk.Radiobutton(self.upsampling_frame, text=text, variable=self.selected_upsampling, value=value, command=self.update_upsampling)
+            rb = ttk.Radiobutton(self.upsampling_frame, text=text, variable=self.selected_upsampling, value=value,
+                                 command=self.update_upsampling)
             rb.pack(side=tk.LEFT, padx=10)
 
         # Navigation buttons
         nav_frame = ttk.Frame(right_frame)
-        nav_frame.pack(fill=tk.X, pady=5)
+        nav_frame.pack(fill=tk.X, pady=0, side="bottom", )
 
         self.prev_button = ttk.Button(nav_frame, text="Previous", command=self.show_previous_image)
-        self.prev_button.pack(side=tk.LEFT, padx=(10, 0), pady=5)
+        self.prev_button.pack(side=tk.LEFT, padx=(0, 0), pady=0)
 
         self.process_image_button = ttk.Button(nav_frame, text="Process Image", command=self.process_current_image)
-        self.process_image_button.pack(side=tk.LEFT, padx=10, pady=5)
+        self.process_image_button.pack(side=tk.LEFT, padx=0, pady=0)
 
         self.next_button = ttk.Button(nav_frame, text="Next", command=self.show_next_image)
-        self.next_button.pack(side=tk.RIGHT, padx=(0, 10), pady=5)
+        self.next_button.pack(side=tk.RIGHT, padx=(0, 0), pady=0)
 
         # Center the process image button between previous and next
-        self.process_image_button.pack_configure(padx=(self.prev_button.winfo_reqwidth() + 20, self.next_button.winfo_reqwidth() + 20))
+        self.process_image_button.pack_configure(
+            padx=(self.prev_button.winfo_reqwidth() + 20, self.next_button.winfo_reqwidth() + 20))
 
     def style_widgets(self):
         style = ttk.Style()
@@ -154,6 +157,9 @@ class ImageProcessingApp:
         if not self.image_files:
             return
 
+        def dual_function(fn_a, fn_b):
+            return lambda *x: (fn_a(*x), fn_b(*x))
+
         input_subfolder = self.selected_subfolder.get()
         input_folder_path = os.path.join(self.input_folder, input_subfolder)
         image_path = os.path.join(input_folder_path, self.image_files[self.current_image_index])
@@ -176,16 +182,22 @@ class ImageProcessingApp:
 
         # Original image section
         original_frame = ttk.LabelFrame(self.preview_area, text="Original Image", padding="10 10 10 10")
-        original_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        original_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=(0, 0), side="top")
 
         original_canvas = tk.Canvas(original_frame)
-        original_scrollbar_y = ttk.Scrollbar(original_frame, orient="vertical", command=original_canvas.yview)
-        original_scrollbar_x = ttk.Scrollbar(original_frame, orient="horizontal", command=original_canvas.xview)
+
+        preview_frame = ttk.LabelFrame(self.preview_area, text="Preview Image", padding="10 10 10 10")
+        preview_canvas = tk.Canvas(preview_frame)
+
+        original_scrollbar_y = ttk.Scrollbar(original_frame, orient="vertical",
+                                             command=dual_function(preview_canvas.yview, original_canvas.yview))
+        original_scrollbar_x = ttk.Scrollbar(original_frame, orient="horizontal",
+                                             command=dual_function(preview_canvas.xview, original_canvas.xview))
         original_canvas.configure(yscrollcommand=original_scrollbar_y.set, xscrollcommand=original_scrollbar_x.set)
 
-        original_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         original_scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-        original_scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+        original_scrollbar_x.pack(side=tk.TOP, fill=tk.X)
+        original_canvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
         original_inner_frame = ttk.Frame(original_canvas)
         original_canvas.create_window((0, 0), window=original_inner_frame, anchor="nw")
@@ -199,17 +211,18 @@ class ImageProcessingApp:
         original_image_label.image = original_img_tk
 
         # Processed image section
-        preview_frame = ttk.LabelFrame(self.preview_area, text="Preview Image", padding="10 10 10 10")
-        preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # preview_frame = ttk.LabelFrame(self.preview_area, text="Preview Image", padding="10 10 10 10")
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=(10,0))
 
-        preview_canvas = tk.Canvas(preview_frame)
-        preview_scrollbar_y = ttk.Scrollbar(preview_frame, orient="vertical", command=preview_canvas.yview)
-        preview_scrollbar_x = ttk.Scrollbar(preview_frame, orient="horizontal", command=preview_canvas.xview)
+        preview_scrollbar_y = ttk.Scrollbar(preview_frame, orient="vertical",
+                                            command=dual_function(preview_canvas.yview, original_canvas.yview))
+        preview_scrollbar_x = ttk.Scrollbar(preview_frame, orient="horizontal",
+                                            command=dual_function(preview_canvas.xview, original_canvas.xview))
         preview_canvas.configure(yscrollcommand=preview_scrollbar_y.set, xscrollcommand=preview_scrollbar_x.set)
 
-        preview_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         preview_scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-        preview_scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+        preview_scrollbar_x.pack(side=tk.TOP, fill=tk.X)
+        preview_canvas.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
         preview_inner_frame = ttk.Frame(preview_canvas)
         preview_canvas.create_window((0, 0), window=preview_inner_frame, anchor="nw")
