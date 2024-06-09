@@ -52,7 +52,7 @@ def create_combined_image_with_borders_sorted(original_image: Image.Image, tiles
                 border_color = 'yellow'
 
             for (x, y) in tile_data['positions']:
-                draw.rectangle([(x, y), (x + tile_size - 1, y + tile_size - 1)], outline=border_color, width=2)
+                draw.rectangle([(x, y), (x + tile_size - 1, y + tile_size - 1)], outline=border_color, width=1)
 
     # Place tiles and their counts below the original image
     x_offset = 0
