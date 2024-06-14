@@ -1,6 +1,7 @@
 from PIL import Image
 import numpy as np
 
+
 def process(image: Image) -> Image:
     # Background and fixed colors in RGB
     background_color = (0, 255, 0)  # #00FF00
@@ -9,6 +10,8 @@ def process(image: Image) -> Image:
         (134, 192, 108),  # #86C06C
         (224, 248, 207)  # #E0F8CF
     ])
+
+    palette_data =dict()
 
     width, height = image.size
 
@@ -19,7 +22,8 @@ def process(image: Image) -> Image:
     unique_colors = np.unique(img_array.reshape(-1, img_array.shape[2]), axis=0)
 
     # Remove the background color and fixed colors from unique colors
-    new_colors = set(tuple(color) for color in unique_colors) - {tuple(background_color)} - set(tuple(color) for color in fixed_colors)
+    new_colors = set(tuple(color) for color in unique_colors) - {tuple(background_color)} - set(
+        tuple(color) for color in fixed_colors)
     new_colors = np.array(list(new_colors))
 
     # Start with a new image filled with the background color
@@ -31,6 +35,8 @@ def process(image: Image) -> Image:
     for i in range(0, len(new_colors), 3):
         # Calculate the number of new colors to process in this batch
         batch_size = min(3, len(new_colors) - i)
+
+        palette = []
 
         # Create a new extended image array
         new_height = new_img_array.shape[0] + height
@@ -45,18 +51,29 @@ def process(image: Image) -> Image:
             new_color = new_colors[i + color_index]
             fixed_color = fixed_colors[color_index % len(fixed_colors)]
 
+            palette.append(list(new_color))
+
             # Create a mask for the current new color
             mask = np.all(img_array == new_color, axis=-1)
 
             # Apply the mask to the new area
             new_img_array[-height:, :, :][mask] = fixed_color
+        palette_data["palette " + str(i)] = palette
 
     # Replace all new colors in the original image area with the background color
     for new_color in new_colors:
         mask = np.all(new_img_array[0:height, :, :] == new_color, axis=-1)
         new_img_array[0:height, :, :][mask] = background_color
 
+    # remove upper part if empty
+    has_fixed_colors = any((c in img_array for c in fixed_colors))
+
+    if not has_fixed_colors:
+        new_img_array = new_img_array[height:]
+
     # Convert the numpy array back to a PIL Image
     final_image = Image.fromarray(new_img_array)
+
+    final_image.extra_data = palette_data
 
     return final_image

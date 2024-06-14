@@ -173,6 +173,9 @@ class ImageProcessingApp:
         original_upscaled = image.resize((image.width * upsampling_factor, image.height * upsampling_factor),
                                          Image.NEAREST)
         processed_image = algorithm(image)
+        if hasattr(processed_image, 'extra_data'):
+            self.log_message(str(processed_image.extra_data))
+
         processed_upscaled = processed_image.resize(
             (processed_image.width * upsampling_factor, processed_image.height * upsampling_factor), Image.NEAREST)
 
@@ -212,7 +215,7 @@ class ImageProcessingApp:
 
         # Processed image section
         # preview_frame = ttk.LabelFrame(self.preview_area, text="Preview Image", padding="10 10 10 10")
-        preview_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=(10,0))
+        preview_frame.pack(fill=tk.BOTH, expand=True, padx=0, pady=(10, 0))
 
         preview_scrollbar_y = ttk.Scrollbar(preview_frame, orient="vertical",
                                             command=dual_function(preview_canvas.yview, original_canvas.yview))
