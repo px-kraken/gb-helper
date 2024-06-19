@@ -1,9 +1,8 @@
-from PIL import Image, ImageDraw, ImageFont
-import matplotlib.pyplot as plt
+import hashlib
 import random
 
 import numpy as np
-import hashlib
+from PIL import Image, ImageDraw, ImageFont
 
 
 def get_ndarray_hash(array: np.ndarray, algorithm: str = 'md5') -> str:
