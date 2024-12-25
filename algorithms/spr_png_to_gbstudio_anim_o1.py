@@ -18,14 +18,17 @@ def get_v_px_index(v_tile, layer, animation, state, tile_height=16):
 
 def process(image: Image.Image, params: str = "") -> Image.Image:
     """
-    Processes the given image, slicing it into frames based on 8x16 patches, and generates a JSON structure
-    similar to the provided example. Each 8x16 patch is considered one frame. That frame consists of two
-    8x8 tiles stacked vertically:
+    Processes the given image, slicing it into frames based on 8x16 patches, and
+    generates a JSON structure similar to the provided example. Each 8x16 patch is
+    considered one frame. That frame consists of two 8x8 tiles stacked vertically:
 
-    Top tile: top 8x8 region
-    Bottom tile: bottom 8x8 region
+        Top tile: top 8x8 region
+        Bottom tile: bottom 8x8 region
 
     The final JSON is saved to "output.json".
+
+    An adaptation is made so that if all pixels of a tile are (0, 255, 0),
+    that tile is skipped (not included in the JSON).
     """
 
     # Basic configuration
@@ -47,27 +50,24 @@ def process(image: Image.Image, params: str = "") -> Image.Image:
     vert_tiles_per_frame = args.setdefault('vtiles', 1)
     layer_palettes = list((auto_cast(a.strip()) for a in args.setdefault('palettes', "1,").split(",")))
 
-    if hor_tiles_per_frame <=2:
+    if hor_tiles_per_frame <= 2:
         h_compensation = 0
     else:
-        h_compensation = (hor_tiles_per_frame-2)*-4
-
+        h_compensation = (hor_tiles_per_frame - 2) * -4
 
     # Check if image dimensions are multiples of the frame size
     if img_width % tile_width != 0 or img_height % tile_height != 0:
         raise ValueError("Image dimensions must be multiples of 8x16 to form frames.")
 
-    frame_count_per_anim = list((auto_cast(a.strip()) for a in
-                                 args.setdefault('frames', str(img_width // (hor_tiles_per_frame * 8)) + ",").split(
-                                     ",")))
+    frame_count_per_anim = list(
+        auto_cast(a.strip())
+        for a in args.setdefault('frames', str(img_width // (hor_tiles_per_frame * 8)) + ",").split(",")
+    )
 
     def gen_id():
         return str(uuid.uuid4())
 
     # Prepare the main JSON structure
-    # This structure is inspired by the given JSON. Adjust as needed.
-    # We create a single state and a single animation that contains all frames.
-    # name = "auto_generated_sprite"
     data = {
         "_resourceType": "sprite",
         "id": gen_id(),
@@ -119,16 +119,44 @@ def process(image: Image.Image, params: str = "") -> Image.Image:
                 for v_tile_index in range(vert_tiles_per_frame):
                     for h_tile_index in range(hor_tiles_per_frame):
                         for layer_index in range(layer_count):
+                            # Compute where in the source image this tile is
                             h_px_index = (h_tile_index + frame_index * hor_tiles_per_frame) * tile_width
-                            v_px_index = (v_tile_index * 2 + layer_index) * (animation_index + 1) * (
-                                        state_index + 1) * tile_height
+                            v_px_index = (v_tile_index * 2 + layer_index) * (animation_index + 1) \
+                                         * (state_index + 1) * tile_height
+
+                            # === NEW CODE BLOCK: Skip tiles that are purely (0,255,0) ===
+                            # Crop the tile region
+                            tile_box = (
+                                h_px_index,
+                                v_px_index,
+                                h_px_index + tile_width,
+                                v_px_index + tile_height
+                            )
+                            tile_region = image.crop(tile_box)
+                            # Extract the pixel data
+                            tile_pixels = tile_region.getdata()
+
+                            # Check if all pixels are (0, 255, 0)
+                            all_green = all(px == (0, 255, 0) for px in tile_pixels)
+                            if all_green:
+                                # Skip adding this tile to the frame
+                                continue
+                            # === END: Skip logic ===
 
                             data['numTiles'] += 1
 
                             tile = {
-                                "_comment": "item: %i   state: %i   anim: %i   frame: %i   tile %i   layer: %i" %
-                                            (data['numTiles'], state_index, animation_index, frame_index, tile_in_frame,
-                                             layer_index),
+                                "_comment": (
+                                        "item: %i   state: %i   anim: %i   frame: %i   tile: %i   layer: %i"
+                                        % (
+                                            data['numTiles'],
+                                            state_index,
+                                            animation_index,
+                                            frame_index,
+                                            tile_in_frame,
+                                            layer_index
+                                        )
+                                ),
                                 "id": gen_id(),
                                 "x": h_tile_index * tile_width + h_compensation,
                                 "y": v_tile_index * tile_height,
@@ -143,11 +171,10 @@ def process(image: Image.Image, params: str = "") -> Image.Image:
                             }
                             tile_in_frame += 1
                             frame["tiles"].append(tile)
-                animation["frames"].append(frame)
 
+                animation["frames"].append(frame)
             state["animations"].append(animation)
         data["states"].append(state)
 
     image.extra_data = data
-
     return image
