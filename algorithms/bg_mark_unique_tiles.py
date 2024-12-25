@@ -7,7 +7,7 @@ def hash_patch(patch):
     hash_obj.update(patch.tobytes())
     return hash_obj.hexdigest()
 
-def process(image: Image) -> Image:
+def process(image: Image, params: str = "") -> Image:
     """Process the image, color the upper-left pixel of duplicate patches pink."""
     pixels = image.load()
     width, height = image.size

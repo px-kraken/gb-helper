@@ -72,6 +72,6 @@ def create_combined_image_with_borders_sorted(original_image: Image.Image, tiles
     return new_image
 
 
-def process(img: Image):
+def process(img: Image, params: str = ""):
     img = create_combined_image_with_borders_sorted(img, extract_unique_tiles(img, 8), 8, 5)
     return img

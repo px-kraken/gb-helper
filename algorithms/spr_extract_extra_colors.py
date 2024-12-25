@@ -2,7 +2,7 @@ from PIL import Image
 import numpy as np
 
 
-def process(image: Image) -> Image:
+def process(image: Image, params: str = "") -> Image:
     # Background and fixed colors in RGB
     background_color = (0, 255, 0)  # #00FF00
     fixed_colors = np.array([

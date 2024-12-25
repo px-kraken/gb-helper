@@ -3,6 +3,7 @@ import time
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 
+import winshell
 from PIL import Image, ImageTk
 from tqdm import tqdm
 
@@ -40,6 +41,10 @@ class ImageProcessingApp:
         right_frame = ttk.Frame(frame)
         right_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=0, pady=0, expand=True)
 
+        # Initialize the preview area before calling populate_subfolders
+        self.preview_area = ttk.Frame(right_frame)
+        self.preview_area.pack(fill=tk.X, expand=True, padx=0, pady=0)
+
         # Subfolder selection
         subfolder_frame = ttk.LabelFrame(left_frame, text="Select Subfolder", padding="10 10 10 10")
         subfolder_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -52,6 +57,23 @@ class ImageProcessingApp:
         self.algorithm_menu = ttk.Combobox(algorithm_frame, textvariable=self.selected_algorithm,
                                            values=list(self.processing_algorithms.keys()))
         self.algorithm_menu.pack(fill=tk.X, padx=5, side="top")
+
+        # Parameter label, entry, and submit button on the same line
+        parameter_frame = ttk.Frame(algorithm_frame)
+        parameter_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        parameter_label = ttk.Label(parameter_frame, text="Parameters:")
+        parameter_label.pack(side=tk.LEFT, padx=5)
+
+        self.parameter_entry = ttk.Entry(parameter_frame)
+        self.parameter_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+
+        # Submit button
+        self.submit_button = ttk.Button(parameter_frame, text="Submit", command=self.submit_parameters)
+        self.submit_button.pack(side=tk.LEFT, padx=5)
+
+        # Bind the entry field to re-enable the submit button when content changes
+        self.parameter_entry.bind('<KeyRelease>', self.enable_submit_button)
 
         # Process button
         self.process_button = ttk.Button(algorithm_frame, text="Process All Images", command=self.process_all_images)
@@ -71,10 +93,6 @@ class ImageProcessingApp:
         log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, height=15, state='disabled')
         self.log_text.pack(fill=tk.BOTH, expand=True)
-
-        # Preview area
-        self.preview_area = ttk.Frame(right_frame)
-        self.preview_area.pack(fill=tk.X, expand=True, padx=0, pady=0)
 
         # Upsampling options
         self.upsampling_frame = ttk.LabelFrame(right_frame, text="Upsampling", padding="10 10 10 10")
@@ -100,6 +118,24 @@ class ImageProcessingApp:
         # Center the process image button between previous and next
         self.process_image_button.pack_configure(
             padx=(self.prev_button.winfo_reqwidth() + 20, self.next_button.winfo_reqwidth() + 20))
+
+    # Function to handle parameter submission
+    def submit_parameters(self):
+        # Disable the button and change its text to "Submitted"
+        self.submit_button.config(text="Submitted", state="disabled")
+
+        # Get the selected algorithm
+        algorithm_name = self.selected_algorithm.get()
+        algorithm = self.processing_algorithms.get(algorithm_name, self.default_algorithm)
+
+        # Update the preview with the submitted parameters
+        self.display_image(algorithm)
+
+    # Function to re-enable the submit button when the parameters entry changes
+    def enable_submit_button(self, event=None):
+        # Check if the entry has any text and re-enable the button if there is a change
+        if self.submit_button['text'] == "Submitted":
+            self.submit_button.config(text="Submit", state="normal")
 
     def style_widgets(self):
         style = ttk.Style()
@@ -140,7 +176,7 @@ class ImageProcessingApp:
 
         input_folder_path = os.path.join(self.input_folder, input_subfolder)
         self.image_files = [f for f in os.listdir(input_folder_path) if
-                            f.lower().endswith(('png', 'jpg', 'jpeg', 'bmp', 'gif'))]
+                            f.lower().endswith(('png', 'jpg', 'jpeg', 'bmp', 'gif', '.lnk'))]
         if not self.image_files:
             self.log_message(f"No image files found in the input subfolder '{input_subfolder}'.")
             return
@@ -164,15 +200,26 @@ class ImageProcessingApp:
         input_folder_path = os.path.join(self.input_folder, input_subfolder)
         image_path = os.path.join(input_folder_path, self.image_files[self.current_image_index])
 
+        is_ref = image_path[-4:] == ".lnk"
+
+        if is_ref:
+            image_path = winshell.Shortcut(image_path).path
+
         image = Image.open(image_path).convert('RGB')
 
         # Get upsampling factor
         upsampling_factor = self.selected_upsampling.get()
 
+        # Get parameters from the input field
+        parameters = self.parameter_entry.get()
+
+        parameters += " fname=" + image_path + " isref=" + str(is_ref)
+
         # Nearest neighbor upscaling for original and processed images
         original_upscaled = image.resize((image.width * upsampling_factor, image.height * upsampling_factor),
                                          Image.NEAREST)
-        processed_image = algorithm(image)
+        # Pass the parameters to the algorithm
+        processed_image = algorithm(image, params=parameters)
         if hasattr(processed_image, 'extra_data'):
             self.log_message(str(processed_image.extra_data))
 
@@ -244,24 +291,6 @@ class ImageProcessingApp:
         original_canvas.configure(scrollregion=original_canvas.bbox("all"))
         preview_canvas.configure(scrollregion=preview_canvas.bbox("all"))
 
-    def show_previous_image(self):
-        if not self.image_files:
-            return
-
-        self.current_image_index = (self.current_image_index - 1) % len(self.image_files)
-        algorithm_name = self.selected_algorithm.get()
-        algorithm = self.processing_algorithms.get(algorithm_name, self.default_algorithm)
-        self.display_image(algorithm)
-
-    def show_next_image(self):
-        if not self.image_files:
-            return
-
-        self.current_image_index = (self.current_image_index + 1) % len(self.image_files)
-        algorithm_name = self.selected_algorithm.get()
-        algorithm = self.processing_algorithms.get(algorithm_name, self.default_algorithm)
-        self.display_image(algorithm)
-
     def process_current_image(self):
         if not self.image_files:
             return
@@ -280,18 +309,38 @@ class ImageProcessingApp:
             os.makedirs(output_folder_path)
 
         name, ext = os.path.splitext(image_name)
-        output_image_name = f"{name}_processed{ext}"
-        output_image_path = os.path.join(output_folder_path, output_image_name)
+        is_ref = input_image_path[-4:] == ".lnk"
+        if is_ref:
+            input_image_path = winshell.Shortcut(input_image_path).path
+            output_image_path = input_image_path
+
+        else:
+            output_image_name = f"{name}_processed{ext}"
+            output_image_path = os.path.join(output_folder_path, output_image_name)
 
         if os.path.exists(output_image_path) and not self.force_override.get():
             self.log_message(f"Skipping {image_name}: Output file already exists and force_override is False.")
             return
 
         try:
+
             image = Image.open(input_image_path).convert('RGB')
-            processed_image = algorithm(image)
-            processed_image.save(output_image_path)
-            self.log_message(f"Processed and saved image as {output_image_name}")
+
+            # Get parameters from input field
+            parameters = self.parameter_entry.get()
+            parameters += " fname=" + input_image_path + " isref=" + str(is_ref) + " processing=True"
+            parameters += " override=" + str(self.force_override.get())
+
+            # Pass parameters to algorithm
+            processed_image = algorithm(image, params=parameters)
+            self.log_message(f"Processed image {input_image_path}")
+
+            if hasattr(processed_image, 'no_save') and getattr(processed_image, 'no_save', True):
+                self.log_message(f"Did not save image due to no_save: {output_image_path}")
+            else:
+                processed_image.save(output_image_path)
+                self.log_message(f"Saved image as {output_image_path}")
+
         except Exception as e:
             self.log_message(f"Error processing {image_name}: {e}")
 
@@ -310,7 +359,9 @@ class ImageProcessingApp:
 
         input_folder_path = os.path.join(self.input_folder, input_subfolder)
         image_files = [f for f in os.listdir(input_folder_path) if
-                       f.lower().endswith(('png', 'jpg', 'jpeg', 'bmp', 'gif'))]
+                       f.lower().endswith(('png', 'jpg', 'jpeg', 'bmp', 'gif', '.lnk'))]
+
+        parameters = self.parameter_entry.get() + " processing=True"  # Get parameters from input field
 
         total_files = len(image_files)
         for i, image_name in enumerate(tqdm(image_files, desc="Processing images", unit="image")):
@@ -328,8 +379,16 @@ class ImageProcessingApp:
                 continue
 
             try:
+                is_ref = input_image_path[-4:] == ".lnk"
+                if is_ref:
+                    input_image_path = winshell.Shortcut(input_image_path).path
+
+                fname_param = " fname=" + input_image_path
+                isref_param = " isref=" + str(is_ref)
+                override_param = " override=" + str(self.force_override.get())
+
                 image = Image.open(input_image_path).convert('RGB')
-                processed_image = algorithm(image)
+                processed_image = algorithm(image, params=parameters+fname_param+isref_param+override_param)
                 processed_image.save(output_image_path)
                 self.log_message(f"Processed and saved image as {output_image_name}")
             except Exception as e:
@@ -337,6 +396,24 @@ class ImageProcessingApp:
 
         self.progress_bar.stop()
         self.log_message(f"All images in '{input_subfolder}' have been processed.")
+
+    def show_previous_image(self):
+        if not self.image_files:
+            return
+
+        self.current_image_index = (self.current_image_index - 1) % len(self.image_files)
+        algorithm_name = self.selected_algorithm.get()
+        algorithm = self.processing_algorithms.get(algorithm_name, self.default_algorithm)
+        self.display_image(algorithm)
+
+    def show_next_image(self):
+        if not self.image_files:
+            return
+
+        self.current_image_index = (self.current_image_index + 1) % len(self.image_files)
+        algorithm_name = self.selected_algorithm.get()
+        algorithm = self.processing_algorithms.get(algorithm_name, self.default_algorithm)
+        self.display_image(algorithm)
 
     def log_message(self, message: str):
         current_time = time.strftime("%Y-%m-%d %H:%M:%S")

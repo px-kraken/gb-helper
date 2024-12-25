@@ -106,7 +106,7 @@ def process_tiles(tiles):
     return new_row_tiles, seen_tiles
 
 
-def process(image: Image) -> Image:
+def process(image: Image, params: str = "") -> Image:
     # Convert the image to a numpy array without changing it to grayscale
     image_array = np.array(image)
 
@@ -151,7 +151,7 @@ def process(image: Image) -> Image:
             flip_str = flip if flip is not None else ''
 
             # Draw the number and flip indication
-            draw.fontmode = 1
+            draw.fontmode = "1"
             draw.text((0, 1), number_str, fill='white', font=font)
             draw.text((0, 7), flip_str, fill='white', font=font)
 

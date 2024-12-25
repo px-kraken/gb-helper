@@ -10,7 +10,7 @@ from ui import ImageProcessingApp
 algos = modules(algorithms)
 
 
-def dummy_processing(image: Image.Image) -> Image.Image:
+def dummy_processing(image: Image.Image, params: str = "") -> Image.Image:
     """
     Dummy processing function.
     Replace with actual image processing logic.
